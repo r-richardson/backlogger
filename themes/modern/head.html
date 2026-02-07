@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backlog Status</title>
+    
+    <!-- Open Graph / Meta Tags -->
+    <meta property="og:title" content="WORKFLOW_NAME" />
+    <meta property="og:url" content="https://github.com/GITHUB_REPOSITORY" />
+    <meta http-equiv="refresh" content="600">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+    <style>
+        :root {
+            --opensuse-green: #73ba25;
+            --opensuse-green-dark: #66a320;
+            --opensuse-blue: #173f4f;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        /* Header / Navbar */
+        .navbar {
+            background-color: var(--opensuse-blue);
+            border-bottom: 4px solid var(--opensuse-green);
+        }
+        .navbar-brand {
+            color: white !important;
+            font-weight: bold;
+        }
+        .navbar-text {
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* Main Container */
+        main {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        /* App Grid */
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .app-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: #212529;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .app-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-color: var(--opensuse-green);
+            color: var(--opensuse-green);
+        }
+
+        .app-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1rem;
+            object-fit: contain;
+        }
+
+        /* Status Table */
+        table {
+            width: 100%;
+            margin-bottom: 1rem;
+            vertical-align: top;
+            border-color: #dee2e6;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden; /* For border radius */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        table th {
+            background-color: var(--opensuse-blue);
+            color: white;
+            font-weight: 600;
+            padding: 1rem;
+            border: none;
+        }
+        
+        table td {
+            padding: 1rem;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+
+        table tr:last-child td {
+            border-bottom: none;
+        }
+
+        a {
+            color: var(--opensuse-blue);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        a:hover {
+            color: var(--opensuse-green);
+            text-decoration: underline;
+        }
+
+        /* Status Indicators */
+        .status-pass { color: var(--opensuse-green); font-size: 1.2rem; }
+        .status-fail { color: #dc3545; font-size: 1.2rem; }
+
+        .footer {
+            margin-top: 3rem;
+            padding: 1rem 0;
+            border-top: 1px solid #dee2e6;
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <a class="navbar-brand" href="#">Backlog Status</a>
+    <span class="navbar-text">
+       Latest Run: LAST_RUN_DATE
+    </span>
+  </div>
+</nav>
+
+<div class="container">
+<main>

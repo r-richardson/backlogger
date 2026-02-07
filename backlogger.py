@@ -13,10 +13,16 @@ from urllib3.util.retry import Retry
 from urllib.parse import urlparse
 import yaml
 import re
+import shutil
 
 
 # Icons used for PASS or FAIL in the md file
-result_icons = {"pass": "&#x1F49A;", "fail": "&#x1F534;"}
+# We use a function or dict that depends on theme? 
+# Or just separate dicts.
+result_icons_modern = {"pass": "<i class='bi bi-check-circle-fill status-pass'></i>", "fail": "<i class='bi bi-x-circle-fill status-fail'></i>"}
+result_icons_legacy = {"pass": "&#x1F49A;", "fail": "&#x1F534;"}
+result_icons = result_icons_modern # Default to modern, will be swapped in main if needed
+
 reminder_text_common = "This ticket was set to **{priority}** priority but was not updated [within the SLO period]({url})."
 reminder_text = "Please consider picking up this ticket or just set the ticket to the next lower priority."
 update_slo_text = "The ticket will be set to the next lower priority **{priority}**."
@@ -36,20 +42,22 @@ slo_priorities = {
                "next_priority": {"id": 3, "name": "Low"}}}
 
 
-# Initialize a blank md file to replace the current README
-def initialize_md(data):
-    with open("index.md", "w") as md:
-        md.write("# Backlog Status\n\n")
-        md.write(
-            "This is the dashboard for [{}]({}).\n".format(data["team"], data["url"])
-        )
-        md.write(
-            "**Latest Run:** " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " UTC\n"
-        )
-        md.write("*(Please refresh to see latest results)*\n\n")
-        md.write(
-            "Backlog Query | Number of Issues | Limits | Status\n--- | --- | --- | ---\n"
-        )
+def setup_theme(data):
+    """
+    Copies the appropriate head.html and foot.html based on the theme.
+    """
+    theme = data.get('theme', 'modern')
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    theme_dir = os.path.join(base_dir, 'themes', theme)
+    
+    # Fallback to modern if theme not found
+    if not os.path.exists(theme_dir):
+        print(f"Warning: Theme '{theme}' not found. Falling back to 'modern'.")
+        theme_dir = os.path.join(base_dir, 'themes', 'modern')
+
+    shutil.copy(os.path.join(theme_dir, 'head.html'), os.path.join(base_dir, 'head.html'))
+    shutil.copy(os.path.join(theme_dir, 'foot.html'), os.path.join(base_dir, 'foot.html'))
+    return theme
 
 
 def retry_request(method, url, data, headers, attempts=7):
@@ -172,28 +180,92 @@ def check_backlog(conf):
     return (good, issue_count)
 
 
-def render_table(data):
+def collect_results(data, theme):
     all_good = True
-    rows = []
     bad_queries = {}
+    
+    results = []
+    
     for conf in data["queries"]:
         good, issue_count = check_backlog(conf)
         url = data["web"] + "?" + conf["query"]
         limits = "<" + str(conf["max"] + 1) if "max" in conf else ""
         if "min" in conf:
             limits += ", >" + str(conf["min"] - 1)
-        rows.append(
-            [
-                "[" + conf["title"] + "](" + url + ")",
-                str(issue_count),
-                limits,
-                result_icons["pass"] if good else result_icons["fail"],
-            ]
-        )
+        
+        status_icon = result_icons["pass"] if good else result_icons["fail"]
+        
+        res = {
+            "title": conf["title"],
+            "url": url,
+            "issue_count": issue_count,
+            "limits": limits,
+            "good": good,
+            "status_icon": status_icon
+        }
+        results.append(res)
+
         if not good:
             all_good = False
             bad_queries[conf['title']] = {"url": url, "issue_count": issue_count, "limits": limits}
-    return (all_good, rows, bad_queries)
+            
+    return all_good, results, bad_queries
+
+
+def generate_markdown(data, results, theme):
+    with open("index.md", "w") as md:
+        # Header
+        if theme == 'legacy':
+            md.write("# Backlog Status\n\n")
+            md.write(
+                "This is the dashboard for [{}]({}).\n".format(data["team"], data["url"])
+            )
+            md.write(
+                "**Latest Run:** " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " UTC\n"
+            )
+            md.write("*(Please refresh to see latest results)*\n\n")
+        else:
+            # Modern Theme - Simplified Header
+            md.write(f"### [{data['team']}]({data['url']}) Dashboard\n\n")
+
+        # Helper to render table
+        def write_table(rows_to_render):
+            if not rows_to_render:
+                return
+
+            if theme == 'legacy':
+                md.write(
+                    "Backlog Query | Number of Issues | Limits | Status\n--- | --- | --- | ---\n"
+                )
+                for res in rows_to_render:
+                    md.write(f"[{res['title']}]({res['url']})|{res['issue_count']}|{res['limits']}|{res['status_icon']}\n")
+                md.write("\n")
+            else:
+                md.write('<div class="table-responsive">\n')
+                md.write('<table class="table table-hover">\n')
+                md.write('<thead><tr><th>Backlog Query</th><th>Number of Issues</th><th>Limits</th><th>Status</th></tr></thead>\n')
+                md.write('<tbody>\n')
+                for res in rows_to_render:
+                    md.write(f"<tr><td><a href='{res['url']}'>{res['title']}</a></td><td>{res['issue_count']}</td><td>{res['limits']}</td><td>{res['status_icon']}</td></tr>\n")
+                md.write('</tbody></table></div>\n\n')
+
+        if theme == 'legacy':
+            # Just one table
+            write_table(results)
+        else:
+            # Split Tables
+            failing = [r for r in results if not r['good']]
+            passing = [r for r in results if r['good']]
+            
+            # 1. Failing Table (if any)
+            if failing:
+                md.write("#### \u26A0\uFE0F Attention Required\n") # Warning sign
+                write_table(failing)
+            
+            # 2. Passing Table (if any)
+            if passing:
+                md.write("#### \u2705 Passing Checks\n") # Check mark
+                write_table(passing)
 
 
 def remove_project_part_from_url(url):
@@ -341,14 +413,19 @@ if __name__ == "__main__":
         with open(switches.config, "r") as config:
             data = yaml.safe_load(config)
             data["reminder-comment-on-issues"] = switches.reminder_comment_on_issues
+            
+            # Setup Theme
+            theme = setup_theme(data)
+            if theme == 'legacy':
+                result_icons = result_icons_legacy
+            
             if switches.output == "influxdb":
                 print("\n".join(line for line in render_influxdb(data)))
             else:
-                initialize_md(data)
-                all_good, rows, bad_queries = render_table(data)
-                with open("index.md", "a") as md:
-                    for row in rows:
-                        md.write("|".join(row) + "\n")
+                # Generate
+                all_good, results, bad_queries = collect_results(data, theme)
+                generate_markdown(data, results, theme)
+                        
                 # open state.json from last run, see if anything changed and send webhook notification if needed
                 state = get_state()
                 trigger_webhook(state, bad_queries)

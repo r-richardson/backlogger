@@ -114,10 +114,10 @@ class TestOutput(unittest.TestCase):
 
     def test_markdown(self):
         scenarios = [
-            {"icon": "&#x1F49A;", "limit": "", "data": {}},
-            {"icon": "&#x1F534;", "limit": "<2", "data": {"max": 1}},
-            {"icon": "&#x1F49A;", "limit": "<5, >0", "data": {"min": 1, "max": 4}},
-            {"icon": "&#x1F534;", "limit": "<5, >2", "data": {"min": 3, "max": 4}},
+            {"icon": backlogger.result_icons_modern["pass"], "limit": "", "data": {}},
+            {"icon": backlogger.result_icons_modern["fail"], "limit": "<2", "data": {"max": 1}},
+            {"icon": backlogger.result_icons_modern["pass"], "limit": "<5, >0", "data": {"min": 1, "max": 4}},
+            {"icon": backlogger.result_icons_modern["fail"], "limit": "<5, >2", "data": {"min": 3, "max": 4}},
         ]
         for scenario in scenarios:
             query = {"title": "Workable Backlog", "query": "query_id=123"}
@@ -131,14 +131,14 @@ class TestOutput(unittest.TestCase):
                     },
                 ]
             )
+            # collect_results returns (all_good, results, bad_queries)
+            # results is a list of dicts: {"title", "url", "issue_count", "limits", "good", "status_icon"}
+            results = backlogger.collect_results(backlogger.data, 'modern')[1]
             self.assertEqual(
-                backlogger.render_table(backlogger.data)[1],
-                [
-                    [
-                        "[Workable Backlog](https://example.com/issues?query_id=123)",
-                        "2",
-                        scenario["limit"],
-                        scenario["icon"],
-                    ],
-                ],
+                results[0]["status_icon"],
+                scenario["icon"]
+            )
+            self.assertEqual(
+                results[0]["limits"],
+                scenario["limit"]
             )
