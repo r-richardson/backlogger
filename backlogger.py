@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import yaml
 import re
 import shutil
+from urllib.parse import urljoin, urlparse
 
 
 # Icons used for PASS or FAIL in the md file
@@ -42,6 +43,109 @@ slo_priorities = {
                "next_priority": {"id": 3, "name": "Low"}}}
 
 
+def fetch_icon(app, output_dir="icons"):
+    """
+    Fetches the favicon for a given app URL.
+    Returns the relative path to the icon.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    name_slug = re.sub(r'[^a-zA-Z0-9]', '_', app['name'].lower())
+    clean_name = app['name'].strip() # Keep spaces, but strip ends
+    
+    # Check both the local output_dir AND the script's bundled icons dir
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    bundled_icons_dir = os.path.join(base_dir, 'icons')
+    search_dirs = [output_dir]
+    if os.path.exists(bundled_icons_dir) and os.path.abspath(bundled_icons_dir) != os.path.abspath(output_dir):
+        search_dirs.append(bundled_icons_dir)
+
+    # 0. Check if icon already exists in search_dirs (Manual override support)
+    # We check for common extensions and naming conventions
+    # Priority: 
+    # 1. Exact Name (e.g. "My App.png")
+    # 2. Slugified Name (e.g. "my_app.png")
+    
+    extensions = ['.ico', '.png', '.jpg', '.jpeg', '.svg']
+    candidates = [clean_name, name_slug]
+    
+    for base in candidates:
+        for ext in extensions:
+            # We try to find the file case-insensitively if possible, but for simplicity
+            # on Linux we check the exact constructed path first.
+            for d in search_dirs:
+                paths_to_try = [
+                    os.path.join(d, f"{base}{ext}"),
+                    os.path.join(d, f"{base.lower()}{ext}"),
+                ]
+                
+                for local_path in paths_to_try:
+                    if os.path.exists(local_path):
+                        return local_path
+            
+    # Prefer PNG, fall back to ICO in naming, though content matters more.
+    # We'll detect content type or just save as is.
+    
+    icon_url = app.get('icon')
+    
+    # If custom icon is not provided, try to find it
+    if not icon_url:
+        try:
+            # 1. Try to find link tag in HTML
+            r = requests.get(app['url'], timeout=5)
+            r.raise_for_status()
+            
+            # Simple regex to find icon link
+            # Matches <link rel="icon" href="..."> or <link rel="shortcut icon" href="...">
+            # This is rough but avoids bs4 dependency
+            link_icon = re.search(r'<link[^>]*rel=["\'](?:shortcut )?icon["\'][^>]*href=["\']([^"\']+)["\']', r.text, re.IGNORECASE)
+            
+            if link_icon:
+                icon_path = link_icon.group(1)
+                icon_url = urljoin(app['url'], icon_path)
+            else:
+                # 2. Fallback to /favicon.ico
+                icon_url = urljoin(app['url'], '/favicon.ico')
+                
+        except Exception as e:
+            print(f"Warning: Could not auto-detect icon for {app['name']}: {e}")
+            # Fallback to generic generic favicon if available
+            # We don't return here, we fall through to the download attempt which checks icon_url
+            pass
+
+    # Download the icon
+    try:
+        if icon_url:
+            local_filename = f"{name_slug}_{os.path.basename(urlparse(icon_url).path)}"
+            if not local_filename or local_filename.endswith('_'):
+                local_filename = f"{name_slug}.ico" # fallback
+                
+            local_path = os.path.join(output_dir, local_filename)
+            
+            # Check if we already downloaded it (skip cache for simplicity or overwrite? overwrite ensures updates)
+            r = requests.get(icon_url, stream=True, timeout=5)
+            if r.status_code == 200:
+                with open(local_path, 'wb') as f:
+                    r.raw.decode_content = True
+                    shutil.copyfileobj(r.raw, f)
+                return local_path
+            else:
+                 print(f"Warning: Failed to download icon from {icon_url} (Status {r.status_code})")
+    except Exception as e:
+        print(f"Warning: Error downloading icon for {app['name']}: {e}")
+    
+    # 3. Final Fallback: Generic favicon
+    # Check for favicon.ico/png etc case-insensitively in search dirs
+    for d in search_dirs:
+        if not os.path.exists(d): continue
+        for filename in os.listdir(d):
+            if filename.lower().startswith('favicon.') and os.path.splitext(filename)[1] in extensions:
+                 return os.path.join(d, filename)
+        
+    return None
+
+
 def setup_theme(data):
     """
     Copies the appropriate head.html and foot.html based on the theme.
@@ -60,6 +164,39 @@ def setup_theme(data):
     return theme
 
 
+def render_apps(data):
+    """
+    Renders the 'Apps' section as HTML to be embedded in Markdown.
+    """
+    if 'apps' not in data or not data['apps']:
+        return ""
+
+    html = ['<div class="app-grid">']
+    
+    for app in data['apps']:
+        icon_path = fetch_icon(app)
+        img_tag = ""
+        if icon_path:
+            # fetch_icon returns the local filesystem path (e.g., /path/to/backlogger/icons/icon.png)
+            # We need to render the web-relative path: icons/icon.png
+            web_icon_path = f"icons/{os.path.basename(icon_path)}"
+            img_tag = f'<img src="{web_icon_path}" alt="{app["name"]}" class="app-icon">'
+        else:
+            # Fallback icon (bootstrap icon)
+            img_tag = '<i class="bi bi-box-arrow-up-right app-icon" style="font-size: 2rem; display: flex; align-items: center; justify-content: center;"></i>'
+
+        html.append(f"""
+        <a href="{app['url']}" class="app-card" target="_blank">
+            {img_tag}
+            <span>{app['name']}</span>
+        </a>
+        """)
+    
+    html.append('</div>')
+    return "\n".join(html)
+
+
+# Initialize a blank md file to replace the current README
 def retry_request(method, url, data, headers, attempts=7):
     retries = Retry(
         total=attempts, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504]
@@ -184,6 +321,11 @@ def collect_results(data, theme):
     all_good = True
     bad_queries = {}
     
+    # We will split results into passing and failing
+    # For legacy theme, we might just want a flat list, but splitting is fine too if we concat them.
+    # Actually for legacy we want one table. 
+    # Let's collect all results as objects first.
+    
     results = []
     
     for conf in data["queries"]:
@@ -227,6 +369,7 @@ def generate_markdown(data, results, theme):
         else:
             # Modern Theme - Simplified Header
             md.write(f"### [{data['team']}]({data['url']}) Dashboard\n\n")
+            # "Latest Run" removed from here, moved to Navbar via head.html replacement
 
         # Helper to render table
         def write_table(rows_to_render):
@@ -262,7 +405,11 @@ def generate_markdown(data, results, theme):
                 md.write("#### \u26A0\uFE0F Attention Required\n") # Warning sign
                 write_table(failing)
             
-            # 2. Passing Table (if any)
+            # 2. Apps Section
+            md.write(render_apps(data))
+            md.write("\n\n")
+            
+            # 3. Passing Table (if any)
             if passing:
                 md.write("#### \u2705 Passing Checks\n") # Check mark
                 write_table(passing)
