@@ -389,7 +389,7 @@ def generate_markdown(data, results, theme):
                 md.write('<thead><tr><th>Backlog Query</th><th>Number of Issues</th><th>Limits</th><th>Status</th></tr></thead>\n')
                 md.write('<tbody>\n')
                 for res in rows_to_render:
-                    md.write(f"<tr><td><a href='{res['url']}'>{res['title']}</a></td><td>{res['issue_count']}</td><td>{res['limits']}</td><td>{res['status_icon']}</td></tr>\n")
+                    md.write(f"<tr class='clickable-row' data-href='{res['url']}'><td><a href='{res['url']}'>{res['title']}</a></td><td>{res['issue_count']}</td><td>{res['limits']}</td><td>{res['status_icon']}</td></tr>\n")
                 md.write('</tbody></table></div>\n\n')
 
         if theme == 'legacy':
