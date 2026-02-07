@@ -85,3 +85,34 @@ jobs:
 ## License
 
 This project is licensed under the MIT license, see LICENSE file for details.
+
+## Visual Customization & Apps
+
+The dashboard features a modern, responsive design based on Bootstrap 5 and openSUSE branding.
+
+### Configuration
+You can add an `apps` section to your `queries.yaml` to display a grid of quick links to relevant tools.
+
+```yaml
+apps:
+  - name: openQA
+    url: https://openqa.opensuse.org
+  - name: SMELT
+    url: https://smelt.suse.de
+```
+
+### Custom Icons
+The tool automatically attempts to fetch favicons for defined apps. You can override these icons by:
+1.  Specifying an `icon` URL in the yaml config.
+2.  Or, placing an icon in the `icons/` directory.
+
+    **Naming Rules:**
+    -   The tool checks for files matching the app name (spaces allowed) or the slugified version (lowercased, spaces->underscores).
+    -   Example: For an app named "Status Page", you can use `icons/Status Page.png` or `icons/status_page.png`.
+    -   Supported extensions: `.ico`, `.png`, `.jpg`, `.jpeg`, `.svg`.
+    
+    **Generic Fallback:** If no specific icon is found, the tool looks for any file named `favicon` (case-insensitive) in the `icons/` directory.
+
+### Themes
+The default theme is "modern". You can revert to the old look by setting `theme: legacy` in `queries.yaml`.
+The modern theme automatically splits queries into "Failing" (top) and "Passing" (bottom) lists for better visibility.
