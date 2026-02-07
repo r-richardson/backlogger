@@ -166,6 +166,7 @@ def fetch_icon(app, output_dir="icons", config_dir=None):
 def setup_theme(data):
     """
     Copies the appropriate head.html and foot.html based on the theme.
+    And performs replacements for placeholders.
     """
     theme = data.get('theme', 'modern')
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -176,7 +177,39 @@ def setup_theme(data):
         print(f"Warning: Theme '{theme}' not found. Falling back to 'modern'.")
         theme_dir = os.path.join(base_dir, 'themes', 'modern')
 
-    shutil.copy(os.path.join(theme_dir, 'head.html'), os.path.join(base_dir, 'head.html'))
+    head_path = os.path.join(theme_dir, 'head.html')
+    with open(head_path, 'r') as f:
+        head_content = f.read()
+
+    # Logo Handling
+    logo_html = ""
+    config_dir = data.get('config_dir')
+    if config_dir:
+        logo_candidates = ['logo.png', 'Logo.png', 'logo.ico', 'Logo.ico', 'logo.svg', 'Logo.svg']
+        for cand in logo_candidates:
+            cand_path = os.path.join(config_dir, cand)
+            if os.path.exists(cand_path):
+                # Copy logo to local icons dir for web access
+                if not os.path.exists('icons'):
+                    os.makedirs('icons')
+                dest_path = os.path.join('icons', cand)
+                shutil.copy2(cand_path, dest_path)
+                logo_html = f'<img src="icons/{cand}" alt="{data.get("team", "")}" style="height: 32px; margin-right: 10px; vertical-align: middle;">'
+                break
+
+    # Construct Team Branding
+    team_url = data.get('url', '#')
+    team_name = data.get('team', 'Backlog Status')
+    if logo_html:
+        team_branding = f'<a href="{team_url}" class="navbar-brand d-flex align-items-center">{logo_html}</a>'
+    else:
+        team_branding = f'<a href="{team_url}" class="navbar-brand">{team_name}</a>'
+
+    head_content = head_content.replace('TEAM_BRANDING', team_branding)
+
+    with open(os.path.join(base_dir, 'head.html'), 'w') as f:
+        f.write(head_content)
+
     shutil.copy(os.path.join(theme_dir, 'foot.html'), os.path.join(base_dir, 'foot.html'))
     return theme
 
@@ -385,9 +418,8 @@ def generate_markdown(data, results, theme):
             )
             md.write("*(Please refresh to see latest results)*\n\n")
         else:
-            # Modern Theme - Simplified Header
-            md.write(f"### [{data['team']}]({data['url']}) Dashboard\n\n")
-            # "Latest Run" removed from here, moved to Navbar via head.html replacement
+            # Modern Theme - Header moved to Navbar
+            pass
 
         # Helper to render table
         def write_table(rows_to_render):
@@ -404,7 +436,7 @@ def generate_markdown(data, results, theme):
             else:
                 md.write('<div class="table-responsive">\n')
                 md.write('<table class="table table-hover">\n')
-                md.write('<thead><tr><th>Backlog Query</th><th>Number of Issues</th><th>Limits</th><th>Status</th></tr></thead>\n')
+                md.write('<thead><tr><th>Query</th><th>Issues</th><th>Limit</th><th>Status</th></tr></thead>\n')
                 md.write('<tbody>\n')
                 for res in rows_to_render:
                     md.write(f"<tr class='clickable-row' data-href='{res['url']}'><td><a href='{res['url']}'>{res['title']}</a></td><td>{res['issue_count']}</td><td>{res['limits']}</td><td>{res['status_icon']}</td></tr>\n")

@@ -83,5 +83,44 @@ class TestIcons(unittest.TestCase):
                 with open(icon_path, "r") as f:
                     self.assertEqual(f.read(), "external") # External should win
 
+    def test_setup_theme_logo(self):
+        # Create a logo in config_dir
+        logo_path = os.path.join(self.config_dir, "logo.png")
+        with open(logo_path, "w") as f:
+            f.write("fake logo content")
+
+        data = {
+            "theme": "modern",
+            "team": "Logo Team",
+            "url": "https://logo.example.com",
+            "config_dir": self.config_dir
+        }
+
+        # We need to mock os.path.dirname(os.path.abspath(__file__)) to point to the real repo root
+        # so it finds themes/modern/head.html
+        real_base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        
+        with patch('backlogger.os.path.dirname') as mock_dirname:
+            mock_dirname.side_effect = lambda x: real_base_dir if 'backlogger.py' in x else os.path.dirname(x)
+            
+            # We also need to mock shutil.copy and shutil.copy2
+            with patch('backlogger.shutil.copy') as mock_copy, \
+                 patch('backlogger.shutil.copy2') as mock_copy2, \
+                 patch('backlogger.open', unittest.mock.mock_open(read_data="TEAM_BRANDING")) as mock_file:
+                
+                theme = backlogger.setup_theme(data)
+                
+                self.assertEqual(theme, "modern")
+                
+                # Check that it tried to write the head.html with the logo
+                # The logo HTML should be in the branding
+                written_content = ""
+                for call_args in mock_file().write.call_args_list:
+                    written_content += call_args[0][0]
+                
+                self.assertIn('icons/logo.png', written_content)
+                self.assertIn('Logo Team', written_content)
+                self.assertIn('https://logo.example.com', written_content)
+
 if __name__ == "__main__":
     unittest.main()
