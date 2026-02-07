@@ -43,7 +43,7 @@ slo_priorities = {
                "next_priority": {"id": 3, "name": "Low"}}}
 
 
-def fetch_icon(app, output_dir="icons"):
+def fetch_icon(app, output_dir="icons", config_dir=None):
     """
     Fetches the favicon for a given app URL.
     Returns the relative path to the icon.
@@ -58,7 +58,14 @@ def fetch_icon(app, output_dir="icons"):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     bundled_icons_dir = os.path.join(base_dir, 'icons')
     search_dirs = [output_dir]
-    if os.path.exists(bundled_icons_dir) and os.path.abspath(bundled_icons_dir) != os.path.abspath(output_dir):
+
+    # Add external override if provided
+    if config_dir:
+        config_icons_dir = os.path.join(config_dir, 'icons')
+        if os.path.exists(config_icons_dir) and os.path.abspath(config_icons_dir) not in [os.path.abspath(d) for d in search_dirs]:
+            search_dirs.insert(0, config_icons_dir) # External has highest priority
+
+    if os.path.exists(bundled_icons_dir) and os.path.abspath(bundled_icons_dir) not in [os.path.abspath(d) for d in search_dirs]:
         search_dirs.append(bundled_icons_dir)
 
     # 0. Check if icon already exists in search_dirs (Manual override support)
@@ -82,6 +89,11 @@ def fetch_icon(app, output_dir="icons"):
                 
                 for local_path in paths_to_try:
                     if os.path.exists(local_path):
+                        # Ensure the icon is in the output directory for web usage
+                        dest_path = os.path.join(output_dir, os.path.basename(local_path))
+                        if os.path.abspath(local_path) != os.path.abspath(dest_path):
+                            shutil.copy2(local_path, dest_path)
+                            return dest_path
                         return local_path
             
     # Prefer PNG, fall back to ICO in naming, though content matters more.
@@ -141,7 +153,12 @@ def fetch_icon(app, output_dir="icons"):
         if not os.path.exists(d): continue
         for filename in os.listdir(d):
             if filename.lower().startswith('favicon.') and os.path.splitext(filename)[1] in extensions:
-                 return os.path.join(d, filename)
+                 local_path = os.path.join(d, filename)
+                 dest_path = os.path.join(output_dir, filename)
+                 if os.path.abspath(local_path) != os.path.abspath(dest_path):
+                     shutil.copy2(local_path, dest_path)
+                     return dest_path
+                 return local_path
         
     return None
 
@@ -172,9 +189,10 @@ def render_apps(data):
         return ""
 
     html = ['<div class="app-grid">']
+    config_dir = data.get('config_dir')
     
     for app in data['apps']:
-        icon_path = fetch_icon(app)
+        icon_path = fetch_icon(app, config_dir=config_dir)
         img_tag = ""
         if icon_path:
             # fetch_icon returns the local filesystem path (e.g., /path/to/backlogger/icons/icon.png)
@@ -560,6 +578,7 @@ if __name__ == "__main__":
         with open(switches.config, "r") as config:
             data = yaml.safe_load(config)
             data["reminder-comment-on-issues"] = switches.reminder_comment_on_issues
+            data['config_dir'] = os.path.dirname(os.path.abspath(switches.config))
             
             # Setup Theme
             theme = setup_theme(data)
