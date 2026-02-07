@@ -413,8 +413,14 @@ def generate_markdown(data, results, theme):
             md.write(
                 "This is the dashboard for [{}]({}).\n".format(data["team"], data["url"])
             )
+            
+            # Use UTC ISO format for JS, and readable UTC for fallback
+            now_utc = datetime.utcnow()
+            ts_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+            ts_text = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+            
             md.write(
-                "**Latest Run:** " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " UTC\n"
+                f"**Latest Run:** <span class='run-date' data-ts='{ts_iso}'>{ts_text}</span>\n"
             )
             md.write("*(Please refresh to see latest results)*\n\n")
         else:

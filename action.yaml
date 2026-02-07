@@ -95,12 +95,18 @@ runs:
           cat ../backlogger/head.html > index.html
           kramdown ../index.md >> index.html
           cat ../backlogger/foot.html >> index.html
+          
+          # Generate timestamps
+          ts_iso=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          ts_text=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          ts_html="<span class='run-date' data-ts='$ts_iso'>$ts_text</span>"
+          
           sed -i \
             -e "s@STATUS_COLOR@${{ env.STATUS_COLOR }}@g" \
             -e "s@GITHUB_REPOSITORY@${{ github.repository }}@g" \
             -e "s@PREVIEW_IMAGE_URL@${{ env.PREVIEW_URL }}@g" \
             -e "s@WORKFLOW_NAME@${{ github.workflow }}@g" \
-            -e "s@LAST_RUN_DATE@$(date -u '+%Y-%m-%d %H:%M:%S UTC')@g" \
+            -e "s@LAST_RUN_DATE@$ts_html@g" \
             index.html
       shell: bash
     - name: Render PNG preview

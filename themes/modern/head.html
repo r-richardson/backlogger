@@ -141,6 +141,27 @@
             font-size: 0.9rem;
         }
     </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var spans = document.querySelectorAll(".run-date");
+            spans.forEach(function(span) {
+                var ts = span.getAttribute("data-ts");
+                if (ts) {
+                    var date = new Date(ts);
+                    var localDate = date.toLocaleString();
+                    var offset = -date.getTimezoneOffset();
+                    var sign = offset >= 0 ? "+" : "-";
+                    var pad = function(num) { return ("0" + Math.abs(num)).slice(-2); };
+                    var hours = Math.floor(Math.abs(offset) / 60);
+                    var mins = Math.abs(offset) % 60;
+                    var tzStr = "UTC" + sign + hours;
+                    if (mins > 0) tzStr += ":" + pad(mins);
+                    
+                    span.innerHTML = localDate + ' <small style="font-size: 0.85em; opacity: 0.8;">(' + tzStr + ')</small>';
+                }
+            });
+        });
+    </script>
 </head>
 <body>
 
