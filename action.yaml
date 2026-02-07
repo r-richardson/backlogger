@@ -87,7 +87,10 @@ runs:
       shell: bash
     - name: Render HTML
       run: |
-          mkdir -p ${{ inputs.folder }}
+          mkdir -p ${{ inputs.folder }}/icons
+          # Merge icons from the tool and the local override icons directory
+          [ -d backlogger/icons ] && cp -r backlogger/icons/* ${{ inputs.folder }}/icons/ || true
+          [ -d icons ] && cp -r icons/* ${{ inputs.folder }}/icons/ || true
           cd ${{ inputs.folder }}
           cat ../backlogger/head.html > index.html
           kramdown ../index.md >> index.html
@@ -97,6 +100,7 @@ runs:
             -e "s@GITHUB_REPOSITORY@${{ github.repository }}@g" \
             -e "s@PREVIEW_IMAGE_URL@${{ env.PREVIEW_URL }}@g" \
             -e "s@WORKFLOW_NAME@${{ github.workflow }}@g" \
+            -e "s@LAST_RUN_DATE@$(date -u '+%Y-%m-%d %H:%M:%S UTC')@g" \
             index.html
       shell: bash
     - name: Render PNG preview
